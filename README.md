@@ -44,3 +44,10 @@ Vercel deploys `main` automatically. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABL
 
 ## Remaining work
 Scheduled collection, PDF extraction, broader source discovery, authentication, private workspaces, vector search and AI analysis are not implemented. The current UI explicitly labels the manually refreshed pilot and coverage limitations.
+
+## Structured worked example
+The build baseline is [docs/V1_SPEC.md](docs/V1_SPEC.md), mapped to the user's master project-plan PDF. `/events/clean-heat-2027` shows the first database-backed political event, seven PDF-cited facts, the proposed target trajectory, and three sector impact pathways. Source facts and analytical inferences are separate; every pathway has evidence references, assumptions, confidence reasons, countervailing effects and missing evidence. Company exposure remains explicitly unasserted pending company-specific sources. This AI-assisted example is awaiting independent review and is not yet gold-standard evaluation data.
+
+`political_events`, `sectors` and `event_sector_impacts` expose SELECT only to public readers under RLS. The migration seeds the first example using natural keys. Subsequent editorial changes require authenticated administrator access; no public write form or automated analysis job exists. The event is linked to its source-library record and captures the reviewed PDF URL, SHA-256 and check date. This one-off PDF review does not enable general PDF search or scheduled source ingestion.
+
+Test event lookup with `node --test tests/events.test.mjs`. An unknown slug returns a 404; a database outage displays an unavailable state rather than inventing or hiding a record. Invalid evidence references fail closed.
