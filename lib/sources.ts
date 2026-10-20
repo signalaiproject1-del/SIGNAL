@@ -3,8 +3,8 @@ export type SourceContent = {
   publisher: string; published_at: string | null; updated_at: string | null;
   closing_at: string | null; release_at: string | null; withdrawn: boolean;
   coverage: string; change_history: { note: string; public_timestamp: string }[];
-  sections: { title: string; url: string; text: string }[];
-  attachments: { title: string; url: string; format: string }[];
+  sections: { title: string; url: string; text: string; format?: string; page?: number }[];
+  attachments: { title: string; url: string; format: string; extraction_status?: string; text_pages?: number; page_count?: number; pages_without_text?: number[]; sha256?: string }[];
 };
 export type Source = { source_url: string; content: SourceContent; collected_at: string; checked_at: string };
 export async function getSources(): Promise<{ sources: Source[]; error: boolean }> {
