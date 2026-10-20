@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Source } from '@/lib/sources';
 
 const labels: Record<string, string> = {
@@ -17,10 +17,12 @@ export default function Feed({ sources }: { sources: Source[] }) {
   const [query, setQuery] = useState('');
   const [type, setType] = useState('all');
   const [sort, setSort] = useState('updated');
+  const [expanded, setExpanded] = useState<string[]>([]);
+  const searchable = useMemo(() => new Map(sources.map(source => [source.source_url, [source.content.title, source.content.description, source.content.publisher, ...source.content.sections.map(s => s.text)].join(' ').toLocaleLowerCase()])), [sources]);
   const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   const results = sources.filter(source => {
     const c = source.content;
-    const haystack = [c.title, c.description, c.publisher, ...c.sections.map(s => s.text)].join(' ').toLocaleLowerCase();
+    const haystack = searchable.get(source.source_url) || '';
     return (type === 'all' || c.document_type === type) && terms.every(term => haystack.includes(term));
   }).sort((a, b) => sort === 'title' ? a.content.title.localeCompare(b.content.title) : updated(b) - updated(a));
   const types = [...new Set(sources.map(s => s.content.document_type))].sort();
@@ -33,26 +35,29 @@ export default function Feed({ sources }: { sources: Source[] }) {
       <label>Sort by<select value={sort} onChange={e => setSort(e.target.value)}><option value="updated">Latest source update</option><option value="title">Title A–Z</option></select></label>
     </div>
     <div className="results-line"><p role="status" aria-live="polite">{results.length} of {sources.length} sources{query.trim() ? ` matching “${query.trim()}”` : ''}</p><p>{oldestCheck ? `Sources checked ${date(oldestCheck)}` : 'No sources imported yet'}</p></div>
-    <p className="scope-note">Search covers imported page text and HTML documents. PDF contents are not yet included. Descriptions below are from GOV.UK; no AI analysis has been added.</p>
+    <p className="scope-note">Search covers imported page text, HTML documents and extracted PDF text. Scanned images and pages without text are not searchable. Descriptions below are from GOV.UK; the worked analysis above is separate.</p>
     {results.length === 0 && <div className="empty"><h3>No matching sources</h3><p>Try a broader search or clear the document filter.</p><button onClick={() => { setQuery(''); setType('all'); }}>Clear filters</button></div>}
     <div className="source-list">{results.map(source => {
       const c = source.content;
+      const pdfMatches = terms.length ? c.sections.filter(s => s.format === 'PDF' && terms.every(term => s.text.toLocaleLowerCase().includes(term))).slice(0, 3) : [];
       return <article className="source-card" key={source.source_url}>
         <div className="card-top"><span className={`badge ${c.document_type.includes('consultation') ? 'consultation' : ''}`}>{typeLabel(c.document_type)}</span>{c.withdrawn && <span className="badge">Withdrawn</span>}<span className="publisher">GOV.UK</span></div>
         <h3><a href={source.source_url} target="_blank" rel="noreferrer">{c.title}<span aria-hidden="true"> ↗</span><span className="sr-only"> (opens GOV.UK in a new tab)</span></a></h3>
         <p className="description">{c.description || 'No description provided by the publisher.'}</p>
+        <p className="scope-note">Last successful check: {date(source.checked_at, true)}</p>
         <dl className="dates"><div><dt>First published</dt><dd>{date(c.published_at)}</dd></div><div><dt>Source updated</dt><dd>{date(c.updated_at)}</dd></div>{c.closing_at && <div className="deadline"><dt>Consultation deadline</dt><dd>{date(c.closing_at, true)}</dd></div>}{c.release_at && <div><dt>Scheduled release</dt><dd>{date(c.release_at, true)}</dd></div>}</dl>
         {c.document_type.includes('consultation') && <p className="context-note">Consultation record — proposals should not be treated as enacted policy.</p>}
         {c.document_type.includes('announcement') && <p className="context-note">Release announcement — this record does not contain the published price figures.</p>}
         {c.change_history[0] && <div className="change-note"><strong>Latest publisher change note</strong><p>{c.change_history[0].note}</p></div>}
-        <details><summary>Read imported text &amp; source details</summary><div className="source-detail"><p className="scope-note">{c.coverage}. Text formatting is simplified; check the original for tables and layout.</p><p className="scope-note">Publisher: {c.publisher}<br/>First collected {date(source.collected_at)} · Last checked {date(source.checked_at, true)}</p>
-          {c.attachments.length > 0 && <nav aria-label={`Attachments for ${c.title}`} className="attachments">{c.attachments.map(a => <a key={a.url} href={a.url} target="_blank" rel="noreferrer">{a.format} · {a.title} ↗{a.format === 'PDF' ? ' (not searched)' : ''}</a>)}</nav>}
-          {c.sections.filter(s => s.text).map(s => <section key={s.url} className="extracted"><h4><a href={s.url} target="_blank" rel="noreferrer">{s.title} ↗</a></h4><p>{s.text}</p></section>)}
+        {pdfMatches.length > 0 && <nav className="pdf-matches" aria-label={`Matching PDF pages for ${c.title}`}><strong>Matching PDF pages</strong>{pdfMatches.map(s => <a key={s.url} href={s.url} target="_blank" rel="noreferrer">{s.title} ↗</a>)}</nav>}
+        <details onToggle={e => { const open = e.currentTarget.open; setExpanded(previous => open ? (previous.includes(source.source_url) ? previous : [...previous, source.source_url]) : previous.filter(url => url !== source.source_url)); }}><summary>Read imported text &amp; source details</summary>{expanded.includes(source.source_url) && <div className="source-detail"><p className="scope-note">{c.coverage}. Text formatting is simplified; check the original for tables and layout.</p><p className="scope-note">Publisher: {c.publisher}<br/>First collected {date(source.collected_at)} · Last checked {date(source.checked_at, true)}</p>
+          {c.attachments.length > 0 && <nav aria-label={`Attachments for ${c.title}`} className="attachments">{c.attachments.map(a => <a key={a.url} href={a.url} target="_blank" rel="noreferrer">{a.format} · {a.title} ↗{a.format === 'PDF' ? (a.extraction_status ? ` (${a.text_pages} of ${a.page_count} pages searchable${a.extraction_status !== 'extracted' ? '; other pages blank or need OCR' : ''})` : ' (not yet extracted)') : ''}</a>)}</nav>}
+          {c.sections.filter(s => s.text).map(s => s.format === 'PDF' ? <details key={s.url} className="extracted"><summary>{s.title}</summary><a href={s.url} target="_blank" rel="noreferrer">Open original PDF at page {s.page} ↗</a><p>{s.text}</p></details> : <section key={s.url} className="extracted"><h4><a href={s.url} target="_blank" rel="noreferrer">{s.title} ↗</a></h4><p>{s.text}</p></section>)}
           {!c.sections.some(s => s.text) && <p>The publisher provides announcement metadata only. Follow the original source for release information.</p>}
           {c.change_history.length > 1 && <details><summary>Publisher update history ({c.change_history.length})</summary><ol className="history">{c.change_history.map((change, i) => <li key={`${change.public_timestamp}-${i}`}><time>{date(change.public_timestamp)}</time><p>{change.note}</p></li>)}</ol></details>}
-        </div></details>
+        </div>}</details>
       </article>;
     })}</div>
-    <p className="scope-note feed-end">Curated pilot · refreshed manually · official source text may change after collection. Source material: <a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" target="_blank" rel="noreferrer">Open Government Licence v3.0</a>, except where otherwise stated.</p>
+    <p className="scope-note feed-end">Curated pilot · daily refresh scheduled · official source text may change after collection. Source material: <a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" target="_blank" rel="noreferrer">Open Government Licence v3.0</a>, except where otherwise stated.</p>
   </section>;
 }
