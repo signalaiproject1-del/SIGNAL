@@ -1,0 +1,3 @@
+[functions.source-import]
+# The function verifies GitHub OIDC signatures, expiry and exact workflow identity itself.
+verify_jwt = false
