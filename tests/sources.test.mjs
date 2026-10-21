@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getSources } from '../lib/sources.ts';
+import { getSources, getSourceFeeds } from '../lib/sources.ts';
 test('source feed distinguishes outages from empty results and uses read-only requests', async () => {
   const oldFetch = globalThis.fetch;
   const oldUrl = process.env.SUPABASE_URL;
@@ -23,6 +23,13 @@ test('source feed distinguishes outages from empty results and uses read-only re
     assert.deepEqual(await getSources(), { sources: [], error: true });
     globalThis.fetch = async () => Response.json({ error: 'bad response' });
     assert.deepEqual(await getSources(), { sources: [], error: true });
+    assert.deepEqual(await getSourceFeeds(), { feeds: [], error: true });
+    globalThis.fetch = async (url, options) => {
+      assert.match(url, /\/rest\/v1\/source_feeds\?/);
+      assert.equal(options.method, undefined);
+      return Response.json([{ id:'desnz-policy', name:'DESNZ', url:'https://www.gov.uk/search/policy-papers-and-consultations', per_run_limit:5 }]);
+    };
+    assert.equal((await getSourceFeeds()).feeds[0].per_run_limit, 5);
   } finally {
     globalThis.fetch = oldFetch;
     if (oldUrl === undefined) delete process.env.SUPABASE_URL; else process.env.SUPABASE_URL = oldUrl;

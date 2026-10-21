@@ -7,6 +7,9 @@ export default function ImportStatus({ data }: { data: Awaited<ReturnType<typeof
     <div><p className="eyebrow">SOURCE COLLECTION</p><h2>{titles[state]}</h2><p>Daily refresh scheduled for 06:23 UTC. Start times can vary.</p>
       {data.latest?.finished_at && <p>Latest completed attempt: {when(data.latest.finished_at)} · {data.latest.imported_count} of {data.latest.expected_count} sources refreshed.</p>}
       {data.lastSuccess && <p>Last fully successful refresh: {when(data.lastSuccess.finished_at || data.lastSuccess.started_at)} (UK time).</p>}
+      {!!data.latest?.discovered_count && <p>{data.latest.discovered_count} new documents added to the refresh list.</p>}
+      {!!data.latest?.discovery_skipped && <p>The 100-document pilot limit has been reached. {data.latest.discovery_skipped} new feed entries were not added; open the publication feed for the full list.</p>}
+      {!!data.latest?.discovery_failures?.length && <p role="alert">Publication discovery failed. Existing documents were still checked, but new publications may be missing.</p>}
       {!['success', 'pending', 'running'].includes(state) && <p>Previously collected evidence remains available. Check each source’s last successful check before using it.</p>}
       {data.latest && data.latest.failures.length > 0 && <details><summary>Sources needing attention ({data.latest.failures.length})</summary><ul>{data.latest.failures.map(f => <li key={f.source_url}><a href={f.source_url} target="_blank" rel="noreferrer">{f.source_url.split('/').at(-1)?.replaceAll('-', ' ')} ↗</a></li>)}</ul></details>}
     </div><a href="https://github.com/signalaiproject1-del/SIGNAL/actions/workflows/refresh-sources.yml" target="_blank" rel="noreferrer">Refresh history ↗</a>

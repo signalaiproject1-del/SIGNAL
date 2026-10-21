@@ -31,7 +31,8 @@ export async function handleImport(request: Request, dependencies: Dependencies)
     for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
     body = JSON.parse(new TextDecoder().decode(bytes));
     if (!['start', 'finish'].includes(body.phase)) throw new Error('Invalid phase');
-    if (body.phase === 'finish' && (!Array.isArray(body.records) || !Array.isArray(body.failures))) throw new Error('Invalid results');
+    if ((body.records !== undefined && !Array.isArray(body.records)) || (body.failures !== undefined && !Array.isArray(body.failures))) throw new Error('Invalid results');
+    if (body.phase === 'finish' && (!body.records || !body.failures)) throw new Error('Missing results');
   } catch { return reply({ error: 'Invalid import payload' }, 400); }
   try {
     return reply(await dependencies.save(run, body.phase, body.records || [], body.failures || []));

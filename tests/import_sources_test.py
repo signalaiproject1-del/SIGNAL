@@ -53,6 +53,7 @@ class PDFTests(unittest.TestCase):
         sections, metadata = module.extract_pdf(data, 'Report', 'https://assets.publishing.service.gov.uk/report.pdf')
         self.assertEqual(metadata['page_count'], 1)
         self.assertEqual(metadata['text_pages'], 1)
+        self.assertEqual(metadata['visual_analysis_status'], 'not_run')
         self.assertEqual(metadata['sha256'], module.hashlib.sha256(data).hexdigest())
         self.assertEqual(sections[0]['page'], 1)
         self.assertTrue(sections[0]['url'].endswith('#page=1'))

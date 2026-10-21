@@ -89,6 +89,7 @@ def extract_pdf(data, title, url):
                                  'text': value, 'format': 'PDF', 'page': number})
         return sections, {'sha256': hashlib.sha256(data).hexdigest(), 'page_count': len(reader.pages),
             'text_pages': len(sections), 'pages_without_text': empty_pages,
+            'visual_analysis_status': 'not_run',
             'extraction_status': 'no_text' if not sections else ('partial' if empty_pages else 'extracted')}
     except CollectionError:
         raise
@@ -104,20 +105,29 @@ def normalize(page, sections, attachments):
     if pdfs:
         coverage += f'; text extracted from {pages} PDF pages'
         if missing: coverage += f'; {missing} pages have no extractable text (blank or requiring OCR)'
+        coverage += '; charts, diagrams and image-only content have not been interpreted'
     return {
         'source_id': page['content_id'], 'title': page['title'],
         'description': text(page.get('description', '')),
         'document_type': page['document_type'],
         'publisher': ', '.join(x['title'] for x in page.get('links', {}).get('organisations', [])) or 'GOV.UK',
+        'organisation_slugs': [x.get('base_path', '').split('/')[-1] for x in page.get('links', {}).get('organisations', [])],
         'published_at': page.get('first_published_at') or details.get('first_public_at'),
         'updated_at': page.get('public_updated_at'), 'closing_at': details.get('closing_date'),
         'release_at': details.get('release_timestamp'), 'withdrawn': bool(page.get('withdrawn_notice')),
         'change_history': details.get('change_history', []), 'sections': sections, 'attachments': attachments,
-        'coverage': coverage, 'extraction_version': 2,
+        'coverage': coverage, 'extraction_version': 3,
     }
 
-def collect(url):
+def collect(url, required_organisation=None):
     page = fetch_page(url)
+    if official_url(page['base_path']) != url:
+        raise CollectionError('source_not_allowed')
+    if required_organisation:
+        organisations = [x.get('base_path', '').split('/')[-1] for x in page.get('links', {}).get('organisations', [])]
+        if required_organisation not in organisations or page['document_type'] not in (
+                'open_consultation', 'closed_consultation', 'consultation_outcome', 'policy_paper'):
+            raise CollectionError('source_not_allowed')
     sections = [{'title': 'Publication page', 'url': url, 'text': text(page.get('details', {}).get('body', ''))}]
     attachments, seen = [], set()
     for a in page.get('details', {}).get('attachments', []):
@@ -140,11 +150,11 @@ def collect(url):
     return {'source_url': official_url(page['base_path']), 'content': content, 'content_hash': digest,
             'checked_at': datetime.now(timezone.utc).isoformat()}
 
-def collect_all(urls):
+def collect_all(urls, organisations=None):
     records, failures = [], []
     for url in urls:
         try:
-            records.append(collect(url))
+            records.append(collect(url, organisations[url]) if organisations and url in organisations else collect(url))
         except Exception as exc:
             code = str(exc) if isinstance(exc, CollectionError) else 'collection_failed'
             failures.append({'source_url': url, 'code': code})

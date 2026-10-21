@@ -1,6 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import type { Source } from '@/lib/sources';
+import PdfPreview from './pdf-preview';
 
 const labels: Record<string, string> = {
   open_consultation: 'Open consultation', closed_consultation: 'Closed consultation',
@@ -35,7 +36,7 @@ export default function Feed({ sources }: { sources: Source[] }) {
       <label>Sort by<select value={sort} onChange={e => setSort(e.target.value)}><option value="updated">Latest source update</option><option value="title">Title A–Z</option></select></label>
     </div>
     <div className="results-line"><p role="status" aria-live="polite">{results.length} of {sources.length} sources{query.trim() ? ` matching “${query.trim()}”` : ''}</p><p>{oldestCheck ? `Sources checked ${date(oldestCheck)}` : 'No sources imported yet'}</p></div>
-    <p className="scope-note">Search covers imported page text, HTML documents and extracted PDF text. Scanned images and pages without text are not searchable. Descriptions below are from GOV.UK; the worked analysis above is separate.</p>
+    <p className="scope-note">Search covers imported page text, HTML documents and extracted PDF text. Graphs, diagrams and scanned images have not been interpreted and their visual content is not searchable. Open a source’s details to view its original PDFs. Descriptions below are from GOV.UK; the worked analysis above is separate.</p>
     {results.length === 0 && <div className="empty"><h3>No matching sources</h3><p>Try a broader search or clear the document filter.</p><button onClick={() => { setQuery(''); setType('all'); }}>Clear filters</button></div>}
     <div className="source-list">{results.map(source => {
       const c = source.content;
@@ -52,6 +53,7 @@ export default function Feed({ sources }: { sources: Source[] }) {
         {pdfMatches.length > 0 && <nav className="pdf-matches" aria-label={`Matching PDF pages for ${c.title}`}><strong>Matching PDF pages</strong>{pdfMatches.map(s => <a key={s.url} href={s.url} target="_blank" rel="noreferrer">{s.title} ↗</a>)}</nav>}
         <details onToggle={e => { const open = e.currentTarget.open; setExpanded(previous => open ? (previous.includes(source.source_url) ? previous : [...previous, source.source_url]) : previous.filter(url => url !== source.source_url)); }}><summary>Read imported text &amp; source details</summary>{expanded.includes(source.source_url) && <div className="source-detail"><p className="scope-note">{c.coverage}. Text formatting is simplified; check the original for tables and layout.</p><p className="scope-note">Publisher: {c.publisher}<br/>First collected {date(source.collected_at)} · Last checked {date(source.checked_at, true)}</p>
           {c.attachments.length > 0 && <nav aria-label={`Attachments for ${c.title}`} className="attachments">{c.attachments.map(a => <a key={a.url} href={a.url} target="_blank" rel="noreferrer">{a.format} · {a.title} ↗{a.format === 'PDF' ? (a.extraction_status ? ` (${a.text_pages} of ${a.page_count} pages searchable${a.extraction_status !== 'extracted' ? '; other pages blank or need OCR' : ''})` : ' (not yet extracted)') : ''}</a>)}</nav>}
+          {c.attachments.filter(a => a.format === 'PDF').map(a => <PdfPreview key={a.url} attachment={a} />)}
           {c.sections.filter(s => s.text).map(s => s.format === 'PDF' ? <details key={s.url} className="extracted"><summary>{s.title}</summary><a href={s.url} target="_blank" rel="noreferrer">Open original PDF at page {s.page} ↗</a><p>{s.text}</p></details> : <section key={s.url} className="extracted"><h4><a href={s.url} target="_blank" rel="noreferrer">{s.title} ↗</a></h4><p>{s.text}</p></section>)}
           {!c.sections.some(s => s.text) && <p>The publisher provides announcement metadata only. Follow the original source for release information.</p>}
           {c.change_history.length > 1 && <details><summary>Publisher update history ({c.change_history.length})</summary><ol className="history">{c.change_history.map((change, i) => <li key={`${change.public_timestamp}-${i}`}><time>{date(change.public_timestamp)}</time><p>{change.note}</p></li>)}</ol></details>}

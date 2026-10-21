@@ -1,4 +1,4 @@
-export type ImportRun = { run_key: string; started_at: string; finished_at: string | null; status: 'running' | 'success' | 'partial' | 'failed'; expected_count: number; imported_count: number; failures: { source_url: string; code: string }[] };
+export type ImportRun = { run_key: string; started_at: string; finished_at: string | null; status: 'running' | 'success' | 'partial' | 'failed'; expected_count: number; imported_count: number; failures: { source_url: string; code: string }[]; discovery_failures?: { source_url: string; code: string }[]; discovered_count?: number; discovery_skipped?: number };
 export async function getImportStatus(): Promise<{ latest: ImportRun | null; lastSuccess: ImportRun | null; error: boolean }> {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_PUBLISHABLE_KEY;

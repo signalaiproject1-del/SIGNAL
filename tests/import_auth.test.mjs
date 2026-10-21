@@ -30,6 +30,7 @@ test('unauthenticated calls and invalid payloads never reach the database', asyn
   assert.equal((await handleImport(request({phase:'start'},'invalid'),deps)).status,401);
   assert.equal((await handleImport(request({phase:'delete'}),deps)).status,400);
   assert.equal((await handleImport(request({phase:'finish',records:{}}),deps)).status,400);
+  assert.equal((await handleImport(request({phase:'start',records:{}}),deps)).status,400);
   assert.equal(calls,0);
   assert.equal((await handleImport(request({phase:'start'}),deps)).status,200);
   assert.equal(calls,1);

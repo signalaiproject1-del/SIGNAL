@@ -23,7 +23,7 @@ Agreed build direction: 20 October 2026. Source of scope: Signal_AI_Political_Ri
 ## Milestone audit
 - Phase 0: this specification and schema establish the working baseline.
 - Phase 1: source library plus one stored event and sector impact chain. Companies screens and a user-facing manual entry form are not yet built.
-- Phase 2: daily refresh of the five curated sources and PDF text extraction are implemented. Broader publication discovery, OCR and 2–3 independent inputs remain outstanding. Current refreshes do not generate AI event records.
+- Phase 2: daily refresh, bounded discovery of the five newest DESNZ feed entries, PDF text extraction and original PDF viewing are implemented. Historical backfill, OCR/visual interpretation and 2–3 independent inputs remain outstanding. Current refreshes do not generate AI event records.
 - Phases 3–7: AI extraction, transmission automation, RAG, evaluation and SignalLM remain outstanding.
 - Hosting and visual work started early; this does not mean V1 or the portfolio definition of done is complete.
 
@@ -42,3 +42,5 @@ flowchart LR
   H --> I[Reports and Ask Signal - later]
   I --> J[Evaluation then SignalLM - later]
 ```
+
+21 October 2026: AI extraction and graph/diagram interpretation deferred at the user’s request while API access and budget are unresolved. Original PDF viewing preserves access to visual evidence without claiming machine understanding.
