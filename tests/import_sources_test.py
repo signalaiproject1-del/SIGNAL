@@ -79,5 +79,11 @@ class PDFTests(unittest.TestCase):
             records, failures = module.collect_all(['https://www.gov.uk/a','https://www.gov.uk/b'])
         self.assertEqual(len(records), 1)
         self.assertEqual(failures, [{'source_url':'https://www.gov.uk/b','code':'download_failed'}])
+    def test_retired_announcement_with_empty_title_is_a_per_source_failure(self):
+        url='https://www.gov.uk/government/statistics/announcements/retired'
+        with patch.object(module, 'fetch_page', return_value={'title': '', 'base_path': '/government/statistics/announcements/retired'}):
+            records, failures=module.collect_all([url])
+        self.assertEqual(records, [])
+        self.assertEqual(failures, [{'source_url':url,'code':'collection_failed'}])
 
 if __name__ == '__main__': unittest.main()

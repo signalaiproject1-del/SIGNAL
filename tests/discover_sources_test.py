@@ -35,7 +35,7 @@ class DiscoveryTests(unittest.TestCase):
 
     def test_publisher_and_document_type_checked_before_attachments_are_downloaded(self):
         url = 'https://www.gov.uk/government/publications/example'
-        page = {'base_path': '/government/publications/example', 'document_type': 'policy_paper', 'links': {'organisations': []}}
+        page = {'title': 'Example', 'base_path': '/government/publications/example', 'document_type': 'policy_paper', 'links': {'organisations': []}}
         with patch.object(importer, 'fetch_page', return_value=page), patch.object(importer, 'download') as download:
             with self.assertRaises(importer.CollectionError): importer.collect(url, 'department-for-energy-security-and-net-zero')
             download.assert_not_called()

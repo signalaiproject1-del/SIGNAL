@@ -10,7 +10,8 @@ const labels: Record<string, string> = {
 };
 function date(value: string | null, time = false) {
   if (!value) return 'Not stated';
-  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London', ...(time ? { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' } as const : {}) }).format(new Date(value));
+  // Browser and server ICU can disagree on short zone names (BST vs GMT+1).
+  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London', ...(time ? { hour: '2-digit', minute: '2-digit' } as const : {}) }).format(new Date(value)) + (time ? ' (UK time)' : '');
 }
 function typeLabel(type: string) { return labels[type] || type.replaceAll('_', ' '); }
 function updated(source: Source) { return Date.parse(source.content.updated_at || source.content.published_at || '') || 0; }

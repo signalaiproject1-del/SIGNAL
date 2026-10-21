@@ -18,6 +18,7 @@ MAX_DOWNLOAD = 25 * 1024 * 1024
 MAX_PAGES = 400
 MAX_PAGE_STREAM = 20 * 1024 * 1024
 MAX_TEXT = 1_500_000
+MAX_SOURCE_BYTES = 3_800_000  # Leave headroom below the database's 4 MB JSON limit.
 logging.getLogger('pypdf').setLevel(logging.ERROR)
 
 class CollectionError(Exception):
@@ -121,6 +122,10 @@ def normalize(page, sections, attachments):
 
 def collect(url, required_organisation=None):
     page = fetch_page(url)
+    # GOV.UK may retain an announcement endpoint after clearing its metadata.
+    # Reject that source locally so it cannot invalidate the whole import batch.
+    if not isinstance(page.get('title'), str) or not page['title'].strip():
+        raise CollectionError('collection_failed')
     if official_url(page['base_path']) != url:
         raise CollectionError('source_not_allowed')
     if required_organisation:
@@ -146,6 +151,8 @@ def collect(url, required_organisation=None):
             attachment.update(metadata)
         attachments.append(attachment)
     content = normalize(page, sections, attachments)
+    if len(json.dumps(content, ensure_ascii=False).encode()) > MAX_SOURCE_BYTES:
+        raise CollectionError('size_limit')
     digest = hashlib.sha256(json.dumps(content, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
     return {'source_url': official_url(page['base_path']), 'content': content, 'content_hash': digest,
             'checked_at': datetime.now(timezone.utc).isoformat()}

@@ -1,6 +1,6 @@
 # SIGNAL
 
-A UK political-risk research pilot with searchable official energy and climate documents, daily DESNZ publication discovery, and original PDF viewing.
+A UK political-risk research pilot with searchable official energy and climate documents, daily DESNZ publication discovery, and original PDF page navigation.
 
 ## Services
 - GitHub: https://github.com/signalaiproject1-del/SIGNAL
@@ -52,7 +52,7 @@ python3 -m unittest discover -s tests -p '*_test.py'
 Vercel deploys `main` automatically. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in the intended Vercel environment. Apply database migrations before deploying dependent application changes. Keep `.env.local` and `.vercel` out of Git.
 
 ## Remaining work
-Additional departments, historical backfill, OCR, authentication, private workspaces, vector search and automated AI analysis remain future work. DESNZ discovery still represents one departmental input. AI extraction and graph/diagram interpretation are deferred until an API provider, key and budget are configured; no model calls or new AI dependencies were added. The website can show original PDFs on demand, including visual content, but does not claim to interpret it. PDF page navigation is browser-dependent, and the live publisher file may differ from the last imported hash. The worked analysis does not automatically change when a source is refreshed; its review date and source hash remain explicit.
+Additional departments, historical backfill, OCR, authentication, private workspaces, vector search and automated AI analysis remain future work. DESNZ discovery still represents one departmental input. AI extraction and graph/diagram interpretation are deferred until an API provider, key and budget are configured; no model calls or new AI dependencies were added. The website provides page-specific links to original PDFs, including their visual content, but does not claim to interpret it. GOV.UK sends `X-Frame-Options: DENY`, so PDFs open in the publisher’s viewer instead of a blocked embedded frame. PDF page navigation is browser-dependent, and the live publisher file may differ from the last imported hash. The worked analysis does not automatically change when a source is refreshed; its review date and source hash remain explicit.
 
 ## Structured worked example
 The build baseline is [docs/V1_SPEC.md](docs/V1_SPEC.md), mapped to the user's master project-plan PDF. `/events/clean-heat-2027` shows the first database-backed political event, seven PDF-cited facts, the proposed target trajectory, and three sector impact pathways. Source facts and analytical inferences are separate; every pathway has evidence references, assumptions, confidence reasons, countervailing effects and missing evidence. Company exposure remains explicitly unasserted pending company-specific sources. This AI-assisted example is awaiting independent review and is not yet gold-standard evaluation data.
@@ -67,4 +67,4 @@ Apply `automated_source_imports` before deploying the Edge Function and app. Dep
 References: [GitHub OIDC claims](https://docs.github.com/en/actions/reference/security/oidc), [GitHub schedules](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule), [Supabase function authentication](https://supabase.com/docs/guides/functions/auth), [pypdf extraction limitations](https://pypdf.readthedocs.io/en/stable/user/extract-text.html).
 
 ## DESNZ feed deployment
-Apply the `source_feed_discovery` migration before publishing the collector changes. Redeploy `source-import` with the existing GitHub identity checks. The updated workflow reads approved targets from the start response, collects them, and submits one atomic finish result. Run it once manually after deployment. Verify the feed registry, document count, discovery status and PDF viewer. `tests/source_feed_discovery.sql` checks permissions, snapshots, retry behaviour and failure preservation inside a rolled-back transaction.
+Apply the `source_feed_discovery` migration before publishing the collector changes. Redeploy `source-import` with the existing GitHub identity checks. The updated workflow reads approved targets from the start response, collects them, and submits one atomic finish result. Run it once manually after deployment. Verify the feed registry, document count, discovery status and original PDF page links. `tests/source_feed_discovery.sql` checks permissions, snapshots, retry behaviour and failure preservation inside a rolled-back transaction.
