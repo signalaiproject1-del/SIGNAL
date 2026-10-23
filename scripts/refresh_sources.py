@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 from import_sources import ROOT, collect_all
 from discover_sources import discover
 
@@ -14,12 +15,21 @@ def submit(payload):
     # Obtain a fresh identity for each request; never persist or print it.
     token_url = os.environ['ACTIONS_ID_TOKEN_REQUEST_URL'] + '&' + urlencode({'audience': ENDPOINT})
     token_request = Request(token_url, headers={'Authorization': 'Bearer ' + os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']})
-    with urlopen(token_request, timeout=30) as response:
-        token = json.load(response)['value']
+    try:
+        with urlopen(token_request, timeout=30) as response:
+            token = json.load(response)['value']
+    except HTTPError as exc:
+        print(f"GitHub identity request rejected (HTTP {exc.code}).")
+        raise
     request = Request(ENDPOINT, data=json.dumps(payload, ensure_ascii=False).encode(),
         headers={'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'}, method='POST')
-    with urlopen(request, timeout=90) as response:
-        return json.load(response)
+    try:
+        with urlopen(request, timeout=90) as response:
+            return json.load(response)
+    except HTTPError as exc:
+        # Status and payload size are safe; response bodies and tokens are not.
+        print(f"Import service rejected {payload['phase']} (HTTP {exc.code}, {len(request.data)} bytes).")
+        raise
 
 def main():
     feeds = json.loads((ROOT / 'scripts/source_feeds.json').read_text())
@@ -45,7 +55,7 @@ def main():
 if __name__ == '__main__':
     try:
         sys.exit(main())
-    except Exception:
+    except Exception as exc:
         # No credential-bearing request details or response bodies in public logs.
-        print('Refresh could not complete. Check the import status and Supabase function logs.')
+        print(f'Refresh could not complete ({type(exc).__name__}). Check the import status and Supabase function logs.')
         sys.exit(1)
