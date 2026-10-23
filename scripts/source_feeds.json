@@ -6,5 +6,22 @@
     "atom_url": "https://www.gov.uk/search/policy-papers-and-consultations.atom?organisations%5B%5D=department-for-energy-security-and-net-zero",
     "organisation": "department-for-energy-security-and-net-zero",
     "limit": 5
+  },
+  {
+    "id": "treasury-policy",
+    "name": "HM Treasury policy papers and consultations",
+    "url": "https://www.gov.uk/search/policy-papers-and-consultations?organisations%5B%5D=hm-treasury&parent=hm-treasury",
+    "atom_url": "https://www.gov.uk/search/policy-papers-and-consultations.atom?organisations%5B%5D=hm-treasury",
+    "organisation": "hm-treasury",
+    "limit": 5
+  },
+  {
+    "id": "parliament-statements",
+    "name": "UK Parliament written ministerial statements",
+    "url": "https://questions-statements.parliament.uk/written-statements",
+    "atom_url": "https://questions-statements-api.parliament.uk/api/writtenstatements/statements?take=5",
+    "kind": "parliament_statements",
+    "organisation": "uk-parliament",
+    "limit": 5
   }
 ]

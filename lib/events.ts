@@ -1,4 +1,4 @@
-export type Fact = { id: string; statement: string; page: number };
+export type Fact = { id: string; statement: string; page: number | null; evidence_url?: string; location?: string };
 export type EventRecord = {
   slug: string; title: string; event_type: string; policy_area: string; jurisdiction: string;
   policy_status: string; event_date: string; source_updated_at: string; checked_at: string;
@@ -6,6 +6,7 @@ export type EventRecord = {
   summary: string; authorship: string; review_status: string;
   facts: Fact[]; targets: { year: string; percentage: number; status: string; page: number }[];
   watchpoints: string[];
+  sectors?: string[]; source_hash?: string;
 };
 export type Impact = {
   id: string; sector: string; sector_name: string; mechanism: string; direction: string;
@@ -34,4 +35,15 @@ export async function getEvent(slug: string): Promise<EventResult> {
     if (impacts.some(i => !i || !Array.isArray(i.fact_ids) || !i.fact_ids.length || i.fact_ids.some(id => !facts.has(id)))) throw new Error('Broken evidence reference');
     return { status: 'ok', event, impacts: impacts.sort((a, b) => a.id.localeCompare(b.id)) };
   } catch { return { status: 'unavailable' }; }
+}
+export async function getPublishedReviews(): Promise<{ slug: string; title: string; event_date: string }[]> {
+  const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) return [];
+  try {
+    const query = new URLSearchParams({ select: 'slug,title,event_date', slug: 'like.review-*', order: 'created_at.desc', limit: '30' });
+    const response = await fetch(`${url}/rest/v1/political_events?${query}`, { headers: { apikey: key }, cache: 'no-store', signal: AbortSignal.timeout(8000) });
+    if (!response.ok) return [];
+    const rows = await response.json();
+    return Array.isArray(rows) ? rows : [];
+  } catch { return []; }
 }

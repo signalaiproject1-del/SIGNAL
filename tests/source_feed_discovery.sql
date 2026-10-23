@@ -26,8 +26,8 @@ begin
   select public.record_source_import('99999990004-1','start','[]',jsonb_build_array(jsonb_build_object('source_url',url,'code','download_failed')))
     into a from public.source_feeds where id='desnz-policy';
   select jsonb_agg(jsonb_build_object('source_url',t->>'source_url','content_hash',repeat('f',64),
-    'content',jsonb_build_object('title','Rollback-only fixture','document_type','policy_paper','sections','[]'::jsonb,'attachments','[]'::jsonb,
-      'organisation_slugs','["department-for-energy-security-and-net-zero"]'::jsonb)))
+    'content',jsonb_build_object('title','Rollback-only fixture','document_type',case when t->>'organisation'='uk-parliament' then 'ministerial_statement' else 'policy_paper' end,'sections','[]'::jsonb,'attachments','[]'::jsonb,
+      'organisation_slugs',jsonb_build_array(coalesce(t->>'organisation','department-for-energy-security-and-net-zero')))))
     into payload from jsonb_array_elements(a->'targets') t;
   b := public.record_source_import('99999990004-1','finish',payload,'[]');
   if b->>'status' <> 'partial' then raise exception 'Feed outage looked healthy'; end if;

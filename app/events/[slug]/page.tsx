@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getEvent } from '@/lib/events';
+import ReviewedEvent from './reviewed-event';
 export const dynamic = 'force-dynamic';
 function date(value: string) { return new Intl.DateTimeFormat('en-GB', {day:'numeric',month:'short',year:'numeric',timeZone:'Europe/London'}).format(new Date(value)); }
 export default async function EventPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -9,6 +10,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
   if (result.status === 'unavailable') return <main><header><a className="wordmark" href="/">SIGNAL<span>●</span></a></header><section className="empty" role="alert"><h1>Analysis unavailable</h1><p>We couldn’t load this event. Please try again shortly.</p><a href={`/events/${slug}`} className="retry">Try again</a></section></main>;
   if (result.status !== 'ok') return null;
   const { event: e, impacts } = result;
+  if (e.review_status === 'reviewed_by_editor') return <ReviewedEvent event={e} />;
   return <main>
     <header><a className="wordmark" href="/">SIGNAL<span>●</span></a><a className="tag" href="/">← SOURCE LIBRARY</a></header>
     <section className="hero event-hero"><p className="eyebrow">WORKED EXAMPLE 01 · {e.policy_area.toUpperCase()}</p><h1>{e.title}</h1><p className="intro">{e.summary}</p><div className="event-badges"><span className="badge consultation">{e.policy_status === 'proposal' ? 'Proposal · not enacted' : e.policy_status}</span><span className="badge">{e.jurisdiction}</span><span className="badge">Independent review pending</span></div>

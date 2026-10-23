@@ -5,12 +5,13 @@ import io
 import json
 import logging
 import os
+import re
 import subprocess
 import tempfile
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, quote
 from pypdf import PdfReader
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +20,8 @@ MAX_PAGES = 400
 MAX_PAGE_STREAM = 20 * 1024 * 1024
 MAX_TEXT = 1_500_000
 MAX_SOURCE_BYTES = 3_800_000  # Leave headroom below the database's 4 MB JSON limit.
+STATEMENT_PATH = re.compile(r'/written-statements/detail/(\d{4}-\d{2}-\d{2})/(H[CL]WS\d+)\Z', re.I)
+PARLIAMENT_API = 'https://questions-statements-api.parliament.uk/api/writtenstatements/statements'
 logging.getLogger('pypdf').setLevel(logging.ERROR)
 
 class CollectionError(Exception):
@@ -45,10 +48,11 @@ def text(html):
 def official_url(value):
     url = urljoin('https://www.gov.uk', value)
     parsed = urlparse(url)
-    if (parsed.scheme != 'https' or parsed.hostname not in ('www.gov.uk', 'assets.publishing.service.gov.uk')
+    if (parsed.scheme != 'https' or parsed.hostname not in ('www.gov.uk', 'assets.publishing.service.gov.uk',
+            'questions-statements.parliament.uk', 'questions-statements-api.parliament.uk', 'qna.files.parliament.uk')
             or parsed.username or parsed.password or parsed.port not in (None, 443)):
         raise CollectionError('source_not_allowed')
-    return url
+    return quote(url, safe=':/?=&%#[]')
 
 def download(url):
     """Do not follow redirects: only the explicitly allowed official host is fetched."""
@@ -121,6 +125,8 @@ def normalize(page, sections, attachments):
     }
 
 def collect(url, required_organisation=None):
+    if urlparse(url).hostname == 'questions-statements.parliament.uk':
+        return collect_statement(url, required_organisation)
     page = fetch_page(url)
     # GOV.UK may retain an announcement endpoint after clearing its metadata.
     # Reject that source locally so it cannot invalidate the whole import batch.
@@ -157,6 +163,53 @@ def collect(url, required_organisation=None):
     return {'source_url': official_url(page['base_path']), 'content': content, 'content_hash': digest,
             'checked_at': datetime.now(timezone.utc).isoformat()}
 
+def statement_url(value):
+    day, uin = str(value.get('dateMade', ''))[:10], str(value.get('uin', '')).upper()
+    url = f'https://questions-statements.parliament.uk/written-statements/detail/{day}/{uin}'
+    if not STATEMENT_PATH.fullmatch(urlparse(url).path): raise CollectionError('source_not_allowed')
+    datetime.strptime(day, '%Y-%m-%d')
+    return url
+
+def collect_statement(url, required_organisation=None):
+    parsed = urlparse(url)
+    match = STATEMENT_PATH.fullmatch(parsed.path)
+    if (parsed.netloc != 'questions-statements.parliament.uk' or parsed.scheme != 'https'
+            or parsed.query or parsed.fragment or not match
+            or required_organisation not in (None, 'uk-parliament')):
+        raise CollectionError('source_not_allowed')
+    value = json.loads(download(f'{PARLIAMENT_API}/{match[1]}/{match[2]}'))['value']
+    if statement_url(value) != url or not value.get('title', '').strip() or not value.get('text', '').strip():
+        raise CollectionError('collection_failed')
+    body = text(value['text'])
+    sections = [{'title': 'Ministerial statement', 'url': url, 'text': body, 'format': 'HTML'}]
+    attachments = []
+    for item in value.get('attachments') or []:
+        target = official_url(item['url'])
+        if urlparse(target).hostname != 'qna.files.parliament.uk': raise CollectionError('source_not_allowed')
+        is_pdf = item.get('fileType', '').lower() == 'pdf'
+        attachment = {'title': item['title'], 'url': target, 'format': 'PDF' if is_pdf else 'File'}
+        if is_pdf:
+            parts, metadata = extract_pdf(download(target), item['title'], target)
+            sections.extend(parts)
+            attachment.update(metadata)
+        attachments.append(attachment)
+    content = {
+        'source_id': str(value['id']), 'title': value['title'],
+        'description': body[:350] + ('…' if len(body) > 350 else ''),
+        'document_type': 'ministerial_statement',
+        'publisher': f"UK Parliament · {value['house']} · {value['answeringBodyName'].strip()}",
+        'organisation_slugs': ['uk-parliament'], 'published_at': value['dateMade'][:10],
+        # The API supplies the statement date, not a separate last-modified date.
+        'updated_at': None, 'closing_at': None, 'release_at': None, 'withdrawn': False,
+        'change_history': [], 'sections': sections, 'attachments': attachments,
+        'coverage': 'Official ministerial statement and extractable PDF attachment text; linked reports are not automatically imported. Graphs and diagrams have not been interpreted',
+        'extraction_version': 4,
+    }
+    if len(json.dumps(content, ensure_ascii=False).encode()) > MAX_SOURCE_BYTES: raise CollectionError('size_limit')
+    digest = hashlib.sha256(json.dumps(content, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    return {'source_url': url, 'content': content, 'content_hash': digest,
+            'checked_at': datetime.now(timezone.utc).isoformat()}
+
 def collect_all(urls, organisations=None):
     records, failures = [], []
     for url in urls:
@@ -177,7 +230,10 @@ ON CONFLICT (source_url, content_hash) DO NOTHING;
 INSERT INTO public.source_documents (source_url, content, content_hash, collected_at, checked_at)
 SELECT source_url, content, content_hash, checked_at, checked_at FROM signal_import
 ON CONFLICT (source_url) DO UPDATE SET content = excluded.content,
-content_hash = excluded.content_hash, checked_at = excluded.checked_at;
+content_hash = excluded.content_hash, checked_at = excluded.checked_at,
+last_changed_at = case when public.source_documents.content_hash <> excluded.content_hash
+then excluded.checked_at else public.source_documents.last_changed_at end
+where public.source_documents.checked_at <= excluded.checked_at;
 COMMIT;
 """
 
