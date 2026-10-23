@@ -1,8 +1,11 @@
 import json
+import io
 import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from urllib.error import HTTPError
+from contextlib import redirect_stdout
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import discover_sources as discovery
@@ -46,9 +49,19 @@ class DiscoveryTests(unittest.TestCase):
         started = {'targets': [{'source_url': url, 'organisation': 'department-for-energy-security-and-net-zero'}], 'discovered_count': 0, 'discovery_skipped': 0}
         with patch.object(runner, 'discover', return_value=([], failures)), \
              patch.object(runner, 'submit', side_effect=[started, {'status': 'partial'}]) as submit, \
+             patch.dict(runner.os.environ, {'GITHUB_STEP_SUMMARY': ''}), \
              patch.object(runner, 'collect_all', return_value=([{'content': {'attachments': []}}], [])) as collect:
             self.assertEqual(runner.main(), 1)
             collect.assert_called_once_with([url], {url: 'department-for-energy-security-and-net-zero'})
             self.assertEqual(submit.call_args_list[0].args[0]['failures'], failures)
+
+    def test_http_diagnostics_do_not_expose_tokens_or_response_bodies(self):
+        output = io.StringIO()
+        error = HTTPError(runner.ENDPOINT, 413, 'secret-response', {}, io.BytesIO(b'secret-body'))
+        with patch.dict(runner.os.environ, {'ACTIONS_ID_TOKEN_REQUEST_URL': 'https://example.invalid/?x=1', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN': 'secret-request-token'}), \
+             patch.object(runner, 'urlopen', side_effect=[io.BytesIO(b'{"value":"secret-oidc-token"}'), error]), redirect_stdout(output):
+            with self.assertRaises(HTTPError): runner.submit({'phase': 'finish', 'records': [], 'failures': []})
+        self.assertIn('HTTP 413', output.getvalue())
+        self.assertNotIn('secret', output.getvalue())
 
 if __name__ == '__main__': unittest.main()
