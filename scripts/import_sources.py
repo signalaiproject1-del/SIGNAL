@@ -227,8 +227,8 @@ def sql_for(records):
 INSERT INTO public.source_versions (source_url, content_hash, content, collected_at)
 SELECT source_url, content_hash, content, checked_at FROM signal_import
 ON CONFLICT (source_url, content_hash) DO NOTHING;
-INSERT INTO public.source_documents (source_url, content, content_hash, collected_at, checked_at)
-SELECT source_url, content, content_hash, checked_at, checked_at FROM signal_import
+INSERT INTO public.source_documents (source_url, content, content_hash, collected_at, checked_at, last_changed_at)
+SELECT source_url, content, content_hash, checked_at, checked_at, checked_at FROM signal_import
 ON CONFLICT (source_url) DO UPDATE SET content = excluded.content,
 content_hash = excluded.content_hash, checked_at = excluded.checked_at,
 last_changed_at = case when public.source_documents.content_hash <> excluded.content_hash

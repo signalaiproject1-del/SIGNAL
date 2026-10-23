@@ -2,7 +2,7 @@
 begin;
 set local role service_role;
 do $$
-declare a jsonb; b jsonb; payload jsonb; failures jsonb; before_count int;
+declare a jsonb; b jsonb; payload jsonb; failures jsonb; before_count int; new_count int; capture_time timestamptz;
 begin
   select count(*) into before_count from public.source_documents;
   a := public.record_source_import('99999990001-1','start',
@@ -29,9 +29,16 @@ begin
     'content',jsonb_build_object('title','Rollback-only fixture','document_type',case when t->>'organisation'='uk-parliament' then 'ministerial_statement' else 'policy_paper' end,'sections','[]'::jsonb,'attachments','[]'::jsonb,
       'organisation_slugs',jsonb_build_array(coalesce(t->>'organisation','department-for-energy-security-and-net-zero')))))
     into payload from jsonb_array_elements(a->'targets') t;
+  select count(*) into new_count from jsonb_array_elements(a->'targets') t where not exists(select 1 from public.source_documents where source_url=t->>'source_url');
+  capture_time := now()-interval '1 minute';
+  update public.source_import_runs set started_at=capture_time where run_key='99999990004-1';
   b := public.record_source_import('99999990004-1','finish',payload,'[]');
   if b->>'status' <> 'partial' then raise exception 'Feed outage looked healthy'; end if;
-  if (select count(*) from public.source_documents) <> before_count+2 then raise exception 'Successful documents not imported'; end if;
+  if (select count(*) from public.source_documents) <> before_count+new_count then raise exception 'Successful documents not imported'; end if;
+  if (select last_changed_at<>collected_at from public.source_documents where source_url='https://www.gov.uk/government/publications/signal-test-one') then raise exception 'First capture looked like a change'; end if;
+  perform public.record_source_import('99999990005-1','start');
+  perform public.record_source_import('99999990005-1','finish',payload,'[]');
+  if (select last_changed_at<>capture_time or checked_at<=capture_time from public.source_documents where source_url='https://www.gov.uk/government/publications/signal-test-one') then raise exception 'Unchanged refresh changed capture timestamp'; end if;
 end $$;
 reset role;
 do $$ begin

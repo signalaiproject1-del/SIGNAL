@@ -37,7 +37,7 @@ export default function Feed({ sources, failures = [] }: { sources: Source[]; fa
       <label>Document type<select value={type} onChange={e => setType(e.target.value)}><option value="all">All document types</option>{types.map(t => <option key={t} value={t}>{typeLabel(t)}</option>)}</select></label>
       <label>Sort by<select value={sort} onChange={e => setSort(e.target.value)}><option value="updated">Latest source update</option><option value="title">Title A–Z</option></select></label>
     </div>
-    <div className="results-line"><p role="status" aria-live="polite">{results.length} of {sources.length} sources{query.trim() ? ` matching “${query.trim()}”` : ''}</p><p>{oldestCheck ? `Sources checked ${date(oldestCheck)}` : 'No sources imported yet'}</p></div>
+    <div className="results-line"><p role="status" aria-live="polite">{results.length} of {sources.length} sources{query.trim() ? ` matching “${query.trim()}”` : ''}</p><p>{oldestCheck ? `Oldest successful source check: ${date(oldestCheck)}` : 'No sources imported yet'}</p></div>
     <p className="scope-note">Search covers imported page text, HTML documents and extracted PDF text. Graphs, diagrams and scanned images have not been interpreted and their visual content is not searchable. Open a source’s details to view its original PDFs. Descriptions below are publisher descriptions or excerpts from official statements; analysis is separate.</p>
     {results.length === 0 && <div className="empty"><h3>No matching sources</h3><p>Try a broader search or clear the document filter.</p><button onClick={() => { setQuery(''); setType('all'); }}>Clear filters</button></div>}
     <div className="source-list">{results.map(source => {
